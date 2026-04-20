@@ -309,6 +309,7 @@ impl JsNetworkPolicy {
             dns: None,
             tls: None,
             max_connections: None,
+            trust_host_cas: None,
         }
     }
 
@@ -322,6 +323,7 @@ impl JsNetworkPolicy {
             dns: None,
             tls: None,
             max_connections: None,
+            trust_host_cas: None,
         }
     }
 
@@ -335,6 +337,7 @@ impl JsNetworkPolicy {
             dns: None,
             tls: None,
             max_connections: None,
+            trust_host_cas: None,
         }
     }
 }

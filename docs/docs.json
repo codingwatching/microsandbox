@@ -45,11 +45,11 @@
               "sandboxes/volumes",
               "sandboxes/snapshots",
               "sandboxes/ssh",
-              "sandboxes/configuration",
-              "sandboxes/customize",
               "sandboxes/logs",
               "sandboxes/metrics",
-              "sandboxes/labels"
+              "sandboxes/labels",
+              "sandboxes/configuration",
+              "sandboxes/customize"
             ]
           },
           {

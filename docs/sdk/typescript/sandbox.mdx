@@ -2195,17 +2195,53 @@ Dry-run or apply plan for a sandbox modification. Values never appear in a plan:
 | status | `string` | Status used for classification (`"running"`, `"stopped"`, ...) |
 | applied | `boolean` | Whether the changes were applied; `false` for dry runs |
 | policy | `"no_restart" \| "next_start" \| "restart"` | Policy used to produce the plan |
-| changes | `PlannedChange[]` | Planned changes, one entry per field or secret (see below) |
+| changes | [`PlannedChange`](#plannedchange)`[]` | Planned changes, one entry per field or secret |
 | conflicts | `{ field, message }[]` | Conflicts that must be resolved before the patch can apply |
 | warnings | `{ field, message }[]` | Non-fatal warnings, e.g. the future-execs-only env caveat |
 | resizeStatus | `ResourceResizeStatus[]` | Live resource resize outcomes, populated by apply when a live change ran (see below) |
 
-`PlannedChange` is a discriminated union on `kind`. Both variants carry `field`, `change`, a `disposition` of `"live"`, `"next start"`, `"requires restart"`, or `"unsupported"`, and an optional `reason`:
+### PlannedChange
 
-| Variant | Extra fields | Description |
-|---------|--------------|-------------|
-| `kind: "config"` | `change: "added" \| "updated" \| "removed"`, `before?`, `after?` | Ordinary config change |
-| `kind: "secret"` | `name`, `change: "added" \| "rotated" \| "removed" \| "renamed" \| "hosts updated" \| "placeholder updated"`, `beforeRef?`, `afterRef?`, `allowHosts` | Secret change. Values are omitted by construction; `beforeRef` / `afterRef` are guest-visible references |
+<p className="msb-backref">Used by <a href="#sandboxmodificationplan">SandboxModificationPlan.changes</a></p>
+
+Discriminated union on `kind`. Both variants carry `field`, `change`, `disposition`, and `reason`.
+
+| Variant | Type | Description |
+|---------|------|-------------|
+| `kind: "config"` | [`ConfigPlannedChange`](#configplannedchange) | Ordinary config change |
+| `kind: "secret"` | [`SecretPlannedChange`](#secretplannedchange) | Secret change. Values are omitted by construction; references are guest-visible only |
+
+### ConfigPlannedChange
+
+<p className="msb-backref">Variant of <a href="#plannedchange">PlannedChange</a></p>
+
+Ordinary configuration change in a modification plan.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| field | `string` | Config field being changed |
+| change | `"added" \| "updated" \| "removed"` | Natural change type for table rendering |
+| before | `string \| null` | Previous safe visible state |
+| after | `string \| null` | New safe visible state |
+| disposition | `"live" \| "next start" \| "requires restart" \| "unsupported"` | When or whether the change can take effect |
+| reason | `string \| null` | Human-readable reason for the classification, when useful |
+
+### SecretPlannedChange
+
+<p className="msb-backref">Variant of <a href="#plannedchange">PlannedChange</a></p>
+
+Secret change in a modification plan. Values are omitted by construction; `beforeRef` and `afterRef` are guest-visible references.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| field | `string` | Always `"secret"` |
+| name | `string` | Stable secret identity, usually the environment variable name |
+| change | `"added" \| "rotated" \| "removed" \| "renamed" \| "hosts updated" \| "placeholder updated"` | Natural change type for table rendering |
+| beforeRef | `string \| null` | Previous guest-visible reference or placeholder |
+| afterRef | `string \| null` | New guest-visible reference or placeholder |
+| disposition | `"live" \| "next start" \| "requires restart" \| "unsupported"` | When or whether the change can take effect |
+| allowHosts | `string[]` | Allowed hosts after the requested change |
+| reason | `string \| null` | Human-readable reason for the classification, when useful |
 
 `ResourceResizeStatus` reports runtime convergence for a live resize; enforcement applies immediately, the guest converges asynchronously:
 

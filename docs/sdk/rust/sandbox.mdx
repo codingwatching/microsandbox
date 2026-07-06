@@ -1894,7 +1894,7 @@ fn restart(self) -> Self
 
 Plan under restart-backed apply semantics. When the patch contains restart-required changes, [`apply()`](#apply) stops the sandbox, persists the config, and starts it again so the changes become active now.
 
-#### <span className="msb-recv">.</span><span className="msb-hn">secret()</span>
+#### <span className="msb-recv">.</span><span className="msb-hn" id="sandboxmodificationbuilder-secret">secret()</span>
 
 ```rust
 fn secret(self, f: impl FnOnce(SecretPatchBuilder) -> SecretPatchBuilder) -> Self
@@ -1916,19 +1916,7 @@ let plan = sb.modify()
 
 </Accordion>
 
-Declare the desired state of one secret via a closure. The spec mirrors the create-time [`SecretBuilder`](/sdk/rust/secrets#secretbuilder) vocabulary, and the planner diffs it against the existing config to infer the change: a secret that does not exist yet is `added`, material on an existing secret `rotated`, and host or placeholder differences update those aspects. Declaring the same secret again replaces the earlier spec; removal is always explicit through [`remove_secret()`](#remove_secret).
-
-The `SecretPatchBuilder` closure exposes:
-
-| Method | Description |
-|--------|-------------|
-| `env(name)` | Name the secret (required). This is the environment variable that exposes the placeholder inside the guest |
-| `source(source)` | Provide the material as a host-side `SecretSource` reference: `SecretSource::Env { var }` (host environment variable, resolved at apply time) or `SecretSource::Store { reference }`. The durable config records only the reference. Mutually exclusive with `value` |
-| `value(value)` | Provide the material as a raw value, for embedders that hold only a value. Zeroized on drop, redacted from `Debug`, never enters the plan, but a value-based apply persists the value into the durable config until a later source-based rotate migrates it to a reference, the same at-rest property as [`secret_env()`](#secret_env) |
-| `placeholder(text)` | Set the guest-visible placeholder. Placeholder changes cannot reach already-running processes, so they classify as `requires restart` on a running sandbox |
-| `allow_host(host)` | Add an allowed host pattern (`api.example.com`, `*.example.org`, or `*`). A non-empty list replaces the secret's current allow-list; an empty list leaves it unchanged. A new secret needs at least one |
-
-Prefer `source(..)` over `value(..)` when the value can be referenced; see the at-rest note on [`secret_env()`](#secret_env) and [Secrets](/sandboxes/secrets) for the full model.
+Declare the desired state of one secret via a [`SecretPatchBuilder`](#secretpatchbuilder) closure. The spec mirrors the create-time [`SecretBuilder`](/sdk/rust/secrets#secretbuilder) vocabulary, and the planner diffs it against the existing config to infer the change: a secret that does not exist yet is `added`, material on an existing secret `rotated`, and host or placeholder differences update those aspects. Declaring the same secret again replaces the earlier spec; removal is always explicit through [`remove_secret()`](#remove_secret).
 
 <p className="msb-label">Parameters</p>
 
@@ -2157,20 +2145,160 @@ Dry-run or apply plan for a sandbox modification. Values never appear in a plan:
 | warnings | `Vec<ModificationWarning>` | Non-fatal warnings (`field` + `message`) about the patch or current runtime capabilities, e.g. the future-execs-only env caveat |
 | resize_status | `Vec<`[`ResourceResizeStatus`](#resourceresizestatus)`>` | Live resource resize outcomes, populated by `apply()` when a live change ran |
 
+### SecretPatchBuilder
+
+<p className="msb-backref">Used by <a href="#sandboxmodificationbuilder-secret">secret()</a></p>
+
+Fluent builder for one declarative secret patch inside [`SandboxModificationBuilder::secret()`](#sandboxmodificationbuilder-secret). It shares the create-time [`SecretBuilder`](/sdk/rust/secrets#secretbuilder) vocabulary: name the secret, provide material by source reference or raw value, set the placeholder when needed, and declare the allowed hosts.
+
+Import path: `microsandbox::sandbox::SecretPatchBuilder`.
+
+Prefer `source(...)` over `value(...)` when the value can be referenced; see the at-rest note on [`secret_env()`](#secret_env) and [Secrets](/sandboxes/secrets) for the full model.
+
+#### <span className="msb-recv">.</span><span className="msb-hn" id="secretpatchbuilder-env">env()</span>
+
+```rust
+fn env(self, name: impl Into<String>) -> Self
+```
+
+Name the secret. This is the environment variable that exposes the placeholder inside the guest. **Required.**
+
+<p className="msb-label">Parameters</p>
+
+<div className="msb-params">
+  <div className="msb-param">
+    <div className="msb-param-key"><code>name</code><span className="msb-type">impl Into&lt;String&gt;</span></div>
+    <div className="msb-param-desc">Secret name, usually the environment variable name.</div>
+  </div>
+</div>
+
+#### <span className="msb-recv">.</span><span className="msb-hn" id="secretpatchbuilder-source">source()</span>
+
+```rust
+fn source(self, source: SecretSource) -> Self
+```
+
+Provide the secret material as a host-side [`SecretSource`](#secretsource) reference. The durable config records only the reference, and the value is resolved host-side when the change applies. Mutually exclusive with `value(...)`.
+
+<p className="msb-label">Parameters</p>
+
+<div className="msb-params">
+  <div className="msb-param">
+    <div className="msb-param-key"><code>source</code><a className="msb-type" href="#secretsource">SecretSource</a></div>
+    <div className="msb-param-desc">Host-side reference for the secret material.</div>
+  </div>
+</div>
+
+#### <span className="msb-recv">.</span><span className="msb-hn" id="secretpatchbuilder-value">value()</span>
+
+```rust
+fn value(self, value: impl Into<String>) -> Self
+```
+
+Provide the secret material as a raw value, for embedders that hold only a value. The value is zeroized on drop, redacted from `Debug`, and never enters the plan. Applying a value persists it into the durable config until a later source-based rotate migrates it to a reference, the same at-rest property as `secret_env()`. Mutually exclusive with `source(...)`.
+
+<p className="msb-label">Parameters</p>
+
+<div className="msb-params">
+  <div className="msb-param">
+    <div className="msb-param-key"><code>value</code><span className="msb-type">impl Into&lt;String&gt;</span></div>
+    <div className="msb-param-desc">Raw secret value held by the embedding process.</div>
+  </div>
+</div>
+
+#### <span className="msb-recv">.</span><span className="msb-hn" id="secretpatchbuilder-placeholder">placeholder()</span>
+
+```rust
+fn placeholder(self, placeholder: impl Into<String>) -> Self
+```
+
+Set the guest-visible placeholder. Placeholder changes cannot reach already-running processes, so they classify as `requires restart` on a running sandbox.
+
+<p className="msb-label">Parameters</p>
+
+<div className="msb-params">
+  <div className="msb-param">
+    <div className="msb-param-key"><code>placeholder</code><span className="msb-type">impl Into&lt;String&gt;</span></div>
+    <div className="msb-param-desc">Guest-visible placeholder string.</div>
+  </div>
+</div>
+
+#### <span className="msb-recv">.</span><span className="msb-hn" id="secretpatchbuilder-allow_host">allow_host()</span>
+
+```rust
+fn allow_host(self, host: impl Into<String>) -> Self
+```
+
+Add an allowed host pattern, such as `api.example.com`, `*.example.org`, or `*`. A non-empty list replaces the secret's current allow-list; an empty list leaves it unchanged. A new secret needs at least one.
+
+<p className="msb-label">Parameters</p>
+
+<div className="msb-params">
+  <div className="msb-param">
+    <div className="msb-param-key"><code>host</code><span className="msb-type">impl Into&lt;String&gt;</span></div>
+    <div className="msb-param-desc">Allowed exact host, wildcard host pattern, or <code>*</code>.</div>
+  </div>
+</div>
+
+### SecretSource
+
+<p className="msb-backref">Used by <a href="#secretpatchbuilder-source">SecretPatchBuilder.source()</a></p>
+
+Host-side source for secret material. The source is resolved when the modification applies, and plans only show guest-visible references.
+
+Import path: `microsandbox::sandbox::SecretSource`.
+
+| Variant | Field | Description |
+|---------|-------|-------------|
+| `Env` | `var: String` | Read the value from a host environment variable at apply time |
+| `Store` | `reference: String` | Reserved for a host-side secret store reference; current modifiers report it as unsupported |
+
 ### PlannedChange
 
 <p className="msb-backref">Used by <a href="#sandboxmodificationplan">SandboxModificationPlan.changes</a></p>
 
-One planned modification entry.
+One planned modification entry. This enum has a `Config` variant for ordinary configuration fields and a `Secret` variant for secret changes.
 
-| Variant | Fields | Description |
-|---------|--------|-------------|
-| `Config` | - `field: String` <br/> - `change: ChangeKind` (`Added`, `Updated`, `Removed`) <br/> - `before: Option<String>` <br/> - `after: Option<String>` <br/> - `disposition:` [`ModificationDisposition`](#modificationdisposition) <br/> - `reason: Option<String>` | Ordinary config change |
-| `Secret` | - `field: String` (always `"secret"`) <br/> - `name: String` <br/> - `change: SecretChangeKind` (`Added`, `Rotated`, `Removed`, `Renamed`, `HostsUpdated`, `PlaceholderUpdated`) <br/> - `before_ref: Option<String>` <br/> - `after_ref: Option<String>` <br/> - `disposition:` [`ModificationDisposition`](#modificationdisposition) <br/> - `allow_hosts: Vec<String>` <br/> - `reason: Option<String>` | Secret change. Values are omitted by construction; `before_ref` / `after_ref` are guest-visible references |
+| Variant | Type | Description |
+|---------|------|-------------|
+| `Config` | [`ConfigPlannedChange`](#configplannedchange) | Ordinary config change |
+| `Secret` | [`SecretPlannedChange`](#secretplannedchange) | Secret change. Values are omitted by construction; references are guest-visible only |
+
+### ConfigPlannedChange
+
+<p className="msb-backref">Variant of <a href="#plannedchange">PlannedChange::Config</a></p>
+
+Ordinary configuration change in a modification plan.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| field | `String` | Config field being changed |
+| change | `ChangeKind` | `Added`, `Updated`, or `Removed` |
+| before | `Option<String>` | Previous safe visible state |
+| after | `Option<String>` | New safe visible state |
+| disposition | [`ModificationDisposition`](#modificationdisposition) | When or whether the change can take effect |
+| reason | `Option<String>` | Human-readable reason for the classification, when useful |
+
+### SecretPlannedChange
+
+<p className="msb-backref">Variant of <a href="#plannedchange">PlannedChange::Secret</a></p>
+
+Secret change in a modification plan. Values are omitted by construction; `before_ref` and `after_ref` are guest-visible references.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| field | `String` | Always `"secret"` |
+| name | `String` | Stable secret identity, usually the environment variable name |
+| change | `SecretChangeKind` | `Added`, `Rotated`, `Removed`, `Renamed`, `HostsUpdated`, or `PlaceholderUpdated` |
+| before_ref | `Option<String>` | Previous guest-visible reference or placeholder |
+| after_ref | `Option<String>` | New guest-visible reference or placeholder |
+| disposition | [`ModificationDisposition`](#modificationdisposition) | When or whether the change can take effect |
+| allow_hosts | `Vec<String>` | Allowed hosts after the requested change |
+| reason | `Option<String>` | Human-readable reason for the classification, when useful |
 
 ### ModificationDisposition
 
-<p className="msb-backref">Used by <a href="#plannedchange">PlannedChange.disposition</a></p>
+<p className="msb-backref">Used by <a href="#configplannedchange">ConfigPlannedChange.disposition</a> · <a href="#secretplannedchange">SecretPlannedChange.disposition</a></p>
 
 When or whether a planned change can take effect. Serializes as the quoted strings below.
 

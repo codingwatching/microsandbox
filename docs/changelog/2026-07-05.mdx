@@ -1,6 +1,6 @@
 ---
 title: "Week of July 5, 2026"
-description: "Live modify and resize for running sandboxes, richer `msb ps` and `msb metrics` output, faster image loading, and a round of CLI, network, and SDK fixes."
+description: "Configuration changes for existing sandboxes, live CPU and memory resize, clearer `msb ps` and `msb metrics` output, faster image loading, and a round of CLI, network, and SDK fixes."
 icon: "bolt"
 ---
 
@@ -10,11 +10,11 @@ icon: "bolt"
 
 ## New features
 
-**Live modify and resize for running sandboxes**
+**Live configuration changes**
 
-`msb modify` and `Sandbox::modify()` can now change a sandbox in place, whether it is stopped or running: CPUs, memory, env vars, labels, workdir, and secrets.
+`msb modify` and the SDK modify APIs now plan and apply changes to an existing sandbox instead of forcing you to recreate it. Use the same flow for stopped or running sandboxes: resize CPU and memory, update labels, and set env vars or workdir for future execs. The CLI and Rust SDK can also add, rotate, or remove secrets.
 
-CPU and memory changes apply live, up to the `max_cpus` and `max_memory` ceilings chosen at create time. Secrets can be added, rotated, and removed on a running sandbox. A dry run shows what each change would do before you commit, and `--next-start` / `--restart` control when changes that cannot apply live take effect.
+CPU and memory changes apply live within the `max_cpus` and `max_memory` ceilings chosen at create time. Every requested change is classified as `live`, `next start`, `requires restart`, or `unsupported`, so a dry run can show what would happen before you commit. Use `--next-start` or `--restart` when a change needs a fresh boot to take effect.
 
 `msb restart`, `msb touch`, and `msb ping` round out the lifecycle commands.
 
@@ -25,11 +25,11 @@ msb modify worker --secret DB_URL@db.internal.example.com
 
 See [Configuration](/sandboxes/configuration).
 
-**Sandbox state and resource columns in `msb ps` and `msb metrics`**
+**Allocation and metrics visibility**
 
-`msb ps` now shows each sandbox's CPU and memory allocation as `effective / max`, so you can see current allocation and resize headroom at a glance.
+`msb ps` now shows each sandbox's CPU and memory allocation as `effective / max`, so you can see the current size and available resize headroom before you modify it.
 
-`msb metrics` gains a `STATE` column (`running`, `stalled`, or `exited`), per-second I/O rates, `--sort cpu|mem`, and `--watch` / `--follow` modes for live monitoring; the Rust SDK exposes the same data via `SandboxMetricsReport`. Crashed sandboxes no longer show as running, and CPU and memory readings follow live resizes instead of boot-time values.
+`msb metrics` gains a `STATE` column (`running`, `stalled`, or `exited`), per-second I/O rates, `--sort cpu|mem`, and `--watch` / `--follow` modes for live monitoring. The Rust SDK exposes the same data via `SandboxMetricsReport`. Crashed sandboxes no longer show as running, and CPU and memory readings follow live resizes instead of boot-time values.
 
 ```bash
 msb ps

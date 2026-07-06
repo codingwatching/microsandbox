@@ -43,6 +43,13 @@ See the [sandbox commands reference](/cli/sandbox-commands).
 
 Sandboxes can now reach self-signed or private HTTPS endpoints without losing secret substitution. Trust is scoped per host: pin a CA bundle to specific hosts, or turn off verification for a bounded set of hosts. Available in the CLI and all four SDKs.
 
+```bash
+msb create python --name agent \
+  --tls-intercept \
+  --tls-upstream-ca-cert-for 'api.internal.example.com=./certs/api-ca.pem' \
+  --tls-no-verify-upstream-for '*.preview.internal'
+```
+
 See the [TLS networking guide](/networking/tls).
 
 **Faster `msb load` and `msb pull`**

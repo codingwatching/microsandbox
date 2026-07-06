@@ -137,9 +137,7 @@ msb restart worker
 
 ## Modify and resize
 
-`msb modify` and the SDK `modify()` methods change a running sandbox in place: CPUs, memory, env vars, labels, workdir, and secrets. Changes apply all-or-nothing.
-
-CPU and memory resize live within the `max_cpus` / `max_memory` ceilings set at create time, so set those above your starting values if the sandbox may need to grow.
+Use `msb modify`, or the SDK `modify()` methods, to change a running sandbox without recreating it: resize its CPUs and memory, update environment variables, labels, or the working directory, and add, rotate, or remove secrets. Changes that can apply to a running sandbox take effect immediately; the rest take effect on its next start.
 
 <CodeGroup>
 ```rust Rust
@@ -164,13 +162,10 @@ plan, err := sb.Modify(ctx, m.ModifyOptions{CPUs: 4, MemoryMiB: 4096})
 
 ```bash CLI
 msb modify api --cpus 4 --memory 4G
-msb modify api --cpus 8 --dry-run   # show the plan, apply nothing
 ```
 </CodeGroup>
 
-Add `--dry-run` to preview. Changes that can't apply live are saved for the next start, or applied now with `--restart` (`policy` in the SDKs).
-
-See [`msb modify`](/cli/sandbox-commands#msb-modify) for all flags.
+See [`msb modify`](/cli/sandbox-commands#msb-modify) and the SDK sandbox reference for all options.
 
 ## Ping and touch
 
